@@ -16,6 +16,11 @@ func NewLLMClient(provider string, model string, apiKey string, endpoint string)
 			APIKey: apiKey,
 			Model:  model,
 		}
+	case "gemini", "google":
+		return &GeminiClient{
+			APIKey: apiKey,
+			Model:  model,
+		}
 	case "ollama":
 		ep := endpoint
 		if ep == "" {

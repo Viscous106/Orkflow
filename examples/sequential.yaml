@@ -1,0 +1,21 @@
+agents:
+  - id: researcher
+    role: Research Assistant
+    goal: Find key insights about electric vehicles
+    model: claude
+
+  - id: writer
+    role: Content Writer
+    goal: Write a concise summary using the research
+    model: claude
+
+models:
+  claude:
+    provider: anthropic
+    model: claude-sonnet-4-20250514
+
+workflow:
+  type: sequential
+  steps:
+    - agent: researcher
+    - agent: writer

@@ -1,0 +1,28 @@
+agents:
+  - id: backend
+    role: Backend Engineer
+    goal: Propose an API design for a todo app
+    model: claude
+
+  - id: frontend
+    role: Frontend Engineer
+    goal: Propose a UI layout for a todo app
+    model: claude
+
+  - id: reviewer
+    role: Tech Lead
+    goal: Review and consolidate the proposals
+    model: claude
+
+models:
+  claude:
+    provider: anthropic
+    model: claude-sonnet-4-20250514
+
+workflow:
+  type: parallel
+  branches:
+    - backend
+    - frontend
+  then:
+    agent: reviewer

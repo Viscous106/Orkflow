@@ -5,11 +5,13 @@ package cli
 
 import (
 	"fmt"
+	"os"
+
+	"Orkflow/internal/parser"
 
 	"github.com/spf13/cobra"
 )
 
-// validateCmd represents the validate command
 var validateCmd = &cobra.Command{
 	Use:   "validate <workflow.yaml>",
 	Short: "Validate a workflow file",
@@ -24,10 +26,23 @@ Examples:
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		workflowFile := args[0]
-		fmt.Printf("Validating workflow: %s\n", workflowFile)
 
-		// TODO: Implement workflow validation
-		fmt.Println("Workflow validation not yet implemented")
+		if verbose {
+			fmt.Printf("Validating workflow: %s\n", workflowFile)
+		}
+
+		config, err := parser.ParseYAML(workflowFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "✗ Validation failed: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("✓ Workflow is valid\n")
+		fmt.Printf("  Agents: %d\n", len(config.Agents))
+		if config.Workflow != nil {
+			fmt.Printf("  Type: %s\n", config.Workflow.Type)
+			fmt.Printf("  Steps: %d\n", len(config.Workflow.Steps))
+		}
 	},
 }
 
