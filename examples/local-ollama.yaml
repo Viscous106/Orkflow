@@ -1,0 +1,50 @@
+# Local Ollama Workflow (no API key needed)
+# Run: ollama serve & ollama pull llama3
+
+models:
+  local:
+    provider: ollama
+    model: llama3
+    endpoint: http://localhost:11434
+
+agents:
+  - id: researcher
+    role: AI Research Analyst
+    goal: |
+      Research the topic "Impact of Large Language Models on Software Development" thoroughly.
+      
+      Focus on:
+      1. How LLMs are changing code generation and review
+      2. Impact on developer productivity (cite any statistics)
+      3. Common use cases: code completion, debugging, documentation
+      4. Challenges and limitations
+      5. Future trends and predictions
+      
+      Provide detailed, factual insights with examples.
+    model: local
+    description: Senior research analyst specializing in AI and software development trends
+
+  - id: writer
+    role: Technical Content Writer
+    goal: |
+      Using the research provided, write a well-structured article titled 
+      "How LLMs Are Transforming Software Development in 2024".
+      
+      Requirements:
+      - Executive summary (2-3 sentences)
+      - 4-5 main sections with headers
+      - Practical examples and use cases
+      - Balanced view including challenges
+      - Conclusion with key takeaways
+      
+      Target audience: Software developers and engineering managers.
+      Tone: Professional but accessible.
+      Length: 800-1000 words.
+    model: local
+    description: Technical writer with expertise in AI and developer tools
+
+workflow:
+  type: sequential
+  steps:
+    - agent: researcher
+    - agent: writer

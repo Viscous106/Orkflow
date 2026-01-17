@@ -8,25 +8,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func parseYaml(path string) (*types.WorkflowConfig, error) {
-	// load file
+func ParseYAML(path string) (*types.WorkflowConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	// Unmarshal file
-	LoadedWorkflow := types.WorkflowConfig{}
-	err = yaml.Unmarshal(data, &LoadedWorkflow)
+	config := types.WorkflowConfig{}
+	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		return nil, err
 	}
 
-	// Validate Yaml
-	err = validate(&LoadedWorkflow)
+	err = validate(&config)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	return &config, nil
 }
+
