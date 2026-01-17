@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"Orkflow/internal/memory"
 	"Orkflow/pkg/types"
 )
 
@@ -15,6 +16,7 @@ type Runner struct {
 	Clients         map[string]LLMClient
 	SessionHistory  string
 	MessageCallback func(agentID, role, content string) // Called when agent completes
+	SharedMemory    *memory.SharedMemory                // Shared memory for inter-agent communication
 }
 
 func NewRunner(config *types.WorkflowConfig) *Runner {
@@ -63,6 +65,20 @@ func (r *Runner) RunAgent(agentDef *types.Agent) (string, error) {
 	client, ok := r.Clients[agentDef.Model]
 	if !ok {
 		return "", fmt.Errorf("model not found: %s", agentDef.Model)
+	}
+
+	// Wait for required keys from shared memory
+	if r.SharedMemory != nil && len(agentDef.Requires) > 0 {
+		fmt.Printf("[%s] ⏳ Waiting for required data: %v\n", agentDef.ID, agentDef.Requires)
+		for _, key := range agentDef.Requires {
+			val, err := r.SharedMemory.WaitFor(key, 5*time.Minute) // 5 min timeout for slow models
+			if err != nil {
+				return "", fmt.Errorf("agent %s: failed to get required key '%s': %w", agentDef.ID, key, err)
+			}
+			// Inject into context
+			r.Context.AddOutput(fmt.Sprintf("shared:%s", key), fmt.Sprintf("%v", val))
+			fmt.Printf("[%s] ✓ Received '%s' from shared memory\n", agentDef.ID, key)
+		}
 	}
 
 	prompt := r.buildPrompt(agentDef)
@@ -117,6 +133,14 @@ func (r *Runner) RunAgent(agentDef *types.Agent) (string, error) {
 
 	fmt.Printf("[%s] ✓ Completed in %.1fs (%d chars)\n", agentDef.ID, elapsed.Seconds(), len(response))
 	r.Context.AddOutput(agentDef.ID, response)
+
+	// Publish outputs to shared memory
+	if r.SharedMemory != nil && len(agentDef.Outputs) > 0 {
+		for _, key := range agentDef.Outputs {
+			r.SharedMemory.Set(key, response)
+			fmt.Printf("[%s] 📤 Published '%s' to shared memory\n", agentDef.ID, key)
+		}
+	}
 
 	// Save to session if callback is set
 	if r.MessageCallback != nil {

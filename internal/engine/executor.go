@@ -5,13 +5,15 @@ import (
 	"sync"
 
 	"Orkflow/internal/agent"
+	"Orkflow/internal/memory"
 	"Orkflow/pkg/types"
 )
 
 type Executor struct {
-	Config *types.WorkflowConfig
-	Runner *agent.Runner
-	State  *State
+	Config       *types.WorkflowConfig
+	Runner       *agent.Runner
+	State        *State
+	SharedMemory *memory.SharedMemory
 }
 
 func NewExecutor(config *types.WorkflowConfig) *Executor {
@@ -23,10 +25,17 @@ func NewExecutor(config *types.WorkflowConfig) *Executor {
 		}
 	}
 
+	// Create shared memory for this workflow execution
+	sharedMem := memory.NewSharedMemory("")
+
+	runner := agent.NewRunner(config)
+	runner.SharedMemory = sharedMem // Pass shared memory to runner
+
 	return &Executor{
-		Config: config,
-		Runner: agent.NewRunner(config),
-		State:  NewState(totalSteps),
+		Config:       config,
+		Runner:       runner,
+		State:        NewState(totalSteps),
+		SharedMemory: sharedMem,
 	}
 }
 

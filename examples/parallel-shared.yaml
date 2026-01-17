@@ -1,0 +1,58 @@
+# Parallel Shared Memory Example
+# Tests shared memory communication between parallel agents
+
+models:
+  gemini:
+    provider: gemini
+    model: gemini-2.5-flash
+
+agents:
+  - id: backend
+    role: Backend Engineer
+    goal: |
+      Design a simple REST API for a Todo application.
+      
+      Include:
+      - Endpoints (GET, POST, PUT, DELETE)
+      - Request/response formats (JSON)
+      - Data model for Todo item
+      
+      Be concise and provide the API specification in a clear format.
+    model: gemini
+    outputs:
+      - api_schema  # Publishes to shared memory
+
+  - id: frontend
+    role: Frontend Engineer
+    goal: |
+      Design React components for a Todo application.
+      
+      IMPORTANT: You will receive the backend's API schema via shared memory.
+      Use that API schema to design your components' data fetching layer.
+      
+      Include:
+      - Component hierarchy
+      - How each component fetches data from the API endpoints
+      - State management approach
+    model: gemini
+    requires:
+      - api_schema  # Waits for backend's output
+
+  - id: reviewer
+    role: Tech Lead
+    goal: |
+      Review the Backend API design and Frontend component design.
+      
+      Your tasks:
+      1. Verify the frontend correctly uses the backend API
+      2. Identify any integration issues
+      3. Suggest improvements
+    model: gemini
+
+workflow:
+  type: parallel
+  branches:
+    - backend
+    - frontend
+  then:
+    agent: reviewer

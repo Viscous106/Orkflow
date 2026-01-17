@@ -1,0 +1,61 @@
+# Game Design Workflow - Tests Shared Memory
+# Backend designs game mechanics, Frontend designs UI, Reviewer integrates
+
+models:
+  ollama:
+    provider: ollama
+    model: phi3:mini
+
+agents:
+  - id: game_designer
+    role: Game Designer
+    goal: |
+      Design core game mechanics for a simple puzzle game.
+      
+      Include:
+      - Game objective and win conditions
+      - Core gameplay loop
+      - Scoring system
+      - 3-4 puzzle types or levels
+      
+      Be concise and creative!
+    model: ollama
+    outputs:
+      - game_mechanics  # Publishes to shared memory
+
+  - id: ui_designer
+    role: UI/UX Designer
+    goal: |
+      Design the user interface for a puzzle game.
+      
+      IMPORTANT: You will receive the game mechanics via shared memory.
+      Design UI elements that match those mechanics.
+      
+      Include:
+      - Main menu layout
+      - Game screen layout
+      - Score display
+      - How puzzle interactions work visually
+    model: ollama
+    requires:
+      - game_mechanics  # Waits for game designer
+
+  - id: lead
+    role: Creative Director
+    goal: |
+      Review the Game Design and UI Design.
+      
+      Your tasks:
+      1. Ensure UI supports all game mechanics
+      2. Suggest a catchy game name
+      3. Identify any missing elements
+      4. Rate the overall concept (1-10)
+    model: ollama
+
+workflow:
+  type: parallel
+  branches:
+    - game_designer
+    - ui_designer
+  then:
+    agent: lead

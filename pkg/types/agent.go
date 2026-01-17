@@ -10,6 +10,8 @@ type Agent struct {
 	Description string   `yaml:"description,omitempty"`
 	Instruction string   `yaml:"instruction,omitempty"`
 	SubAgents   []string `yaml:"sub_agents,omitempty"`
+	Outputs     []string `yaml:"outputs,omitempty"`  // Keys to publish to shared memory
+	Requires    []string `yaml:"requires,omitempty"` // Keys to wait for before running
 }
 
 func (a *Agent) GetPrompt() string {
