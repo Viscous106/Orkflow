@@ -1,0 +1,61 @@
+# Parallel Gemini Workflow - Code Review Example
+# Tests parallel execution with aggregation
+
+models:
+  gemini:
+    provider: gemini
+    model: gemini-2.5-flash
+
+agents:
+  - id: backend
+    role: Backend Engineer
+    goal: |
+      Design a simple REST API for a Todo application.
+      
+      Include:
+      - Endpoints (GET, POST, PUT, DELETE)
+      - Request/response formats (JSON)
+      - Data model for Todo item
+      - Basic error handling
+      
+      Provide the API specification in a clear format.
+    model: gemini
+    description: Backend developer specializing in API design
+
+  - id: frontend
+    role: Frontend Engineer
+    goal: |
+      Design a React component structure for a Todo application.
+      
+      Include:
+      - Component hierarchy
+      - State management approach
+      - Key props for each component
+      - Basic UI layout description
+      
+      Focus on clean, reusable component design.
+    model: gemini
+    description: Frontend developer specializing in React
+
+  - id: reviewer
+    role: Tech Lead
+    goal: |
+      Review and consolidate the Backend API design and Frontend component design.
+      
+      Your tasks:
+      1. Identify any integration issues between the designs
+      2. Suggest improvements for consistency
+      3. Create a unified technical specification
+      4. Recommend next steps for implementation
+      
+      Be thorough but concise in your review.
+    model: gemini
+    description: Senior tech lead responsible for architectural decisions
+
+workflow:
+  type: parallel
+  branches:
+    - backend
+    - frontend
+  then:
+    agent: reviewer

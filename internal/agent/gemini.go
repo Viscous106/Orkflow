@@ -42,6 +42,12 @@ func (g *GeminiClient) Generate(prompt string) (string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
+
+		// Check for quota exceeded (429) - prefix for detection
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return "", fmt.Errorf("QUOTA_EXCEEDED[%s]: quota limit reached", g.Model)
+		}
+
 		return "", fmt.Errorf("gemini api error: %s", string(respBody))
 	}
 

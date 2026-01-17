@@ -30,6 +30,16 @@ func NewExecutor(config *types.WorkflowConfig) *Executor {
 	}
 }
 
+// SetSessionHistory passes previous session context to the runner
+func (e *Executor) SetSessionHistory(history string) {
+	e.Runner.SetSessionHistory(history)
+}
+
+// SetMessageCallback sets callback for when agents complete
+func (e *Executor) SetMessageCallback(callback func(agentID, role, content string)) {
+	e.Runner.MessageCallback = callback
+}
+
 func (e *Executor) Execute() (string, error) {
 	if e.Config.Workflow == nil {
 		return e.executeSupervisor()

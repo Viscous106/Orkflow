@@ -10,9 +10,11 @@ import (
 const maxRetries = 3
 
 type Runner struct {
-	Config  *types.WorkflowConfig
-	Context *ContextManager
-	Clients map[string]LLMClient
+	Config          *types.WorkflowConfig
+	Context         *ContextManager
+	Clients         map[string]LLMClient
+	SessionHistory  string
+	MessageCallback func(agentID, role, content string) // Called when agent completes
 }
 
 func NewRunner(config *types.WorkflowConfig) *Runner {
@@ -33,6 +35,11 @@ func NewRunner(config *types.WorkflowConfig) *Runner {
 	}
 
 	return runner
+}
+
+// SetSessionHistory stores previous session context
+func (r *Runner) SetSessionHistory(history string) {
+	r.SessionHistory = history
 }
 
 var spinnerStyles = [][]string{
@@ -110,13 +117,25 @@ func (r *Runner) RunAgent(agentDef *types.Agent) (string, error) {
 
 	fmt.Printf("[%s] ✓ Completed in %.1fs (%d chars)\n", agentDef.ID, elapsed.Seconds(), len(response))
 	r.Context.AddOutput(agentDef.ID, response)
+
+	// Save to session if callback is set
+	if r.MessageCallback != nil {
+		r.MessageCallback(agentDef.ID, agentDef.Role, response)
+	}
+
 	return response, nil
 }
 
 func (r *Runner) buildPrompt(agentDef *types.Agent) string {
 	prompt := agentDef.GetPrompt()
-	context := r.Context.GetContext()
 
+	// Add session history from previous runs
+	if r.SessionHistory != "" {
+		prompt = r.SessionHistory + "\n\n" + prompt
+	}
+
+	// Add context from current run
+	context := r.Context.GetContext()
 	if context != "" {
 		prompt = prompt + "\n\n" + context
 	}

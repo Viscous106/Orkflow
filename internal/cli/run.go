@@ -10,10 +10,19 @@ import (
 	"strings"
 
 	"Orkflow/internal/engine"
+	"Orkflow/internal/memory"
 	"Orkflow/internal/parser"
 	"Orkflow/pkg/types"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	sessionID      string
+	continueLatest bool
+	userPrompt     string
+	useProvider    string
+	useModel       string
 )
 
 var runCmd = &cobra.Command{
@@ -24,9 +33,19 @@ var runCmd = &cobra.Command{
 The workflow file should contain the definition of agents, steps,
 and their execution order (sequential or parallel).
 
+Session Options:
+  --session <id>    Continue a specific session
+  --continue        Continue the most recent session
+  --prompt <text>   Provide input prompt for the session
+
+Model Override:
+  --use-provider    Override provider for all agents (e.g., ollama, gemini)
+  --use-model       Override model name for all agents
+
 Examples:
   orka run workflow.yaml
-  orka run examples/sequential.yaml --verbose`,
+  orka run workflow.yaml --use-provider ollama --use-model llama3
+  orka run workflow.yaml --continue --prompt "Follow up question"`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		workflowFile := args[0]
@@ -45,26 +64,110 @@ Examples:
 			fmt.Printf("Loaded %d agents\n", len(config.Agents))
 		}
 
+		// Apply model/provider overrides if specified
+		if useProvider != "" || useModel != "" {
+			for name, model := range config.Models {
+				if useProvider != "" {
+					model.Provider = useProvider
+					fmt.Printf("⚡ Overriding provider for '%s' → %s\n", name, useProvider)
+				}
+				if useModel != "" {
+					model.Model = useModel
+					fmt.Printf("⚡ Overriding model for '%s' → %s\n", name, useModel)
+				}
+				model.APIKey = "" // Clear API key so it gets re-prompted for new provider
+				config.Models[name] = model
+			}
+		}
+
 		// Check and prompt for missing API keys
 		if err := ensureAPIKeys(config); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
+		// Handle session
+		var session *memory.Session
+		if sessionID != "" {
+			session, err = memory.LoadSession(sessionID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error loading session %s: %v\n", sessionID, err)
+				os.Exit(1)
+			}
+			fmt.Printf("📚 Continuing session: %s\n", session.ID)
+		} else if continueLatest {
+			session, err = memory.GetLatestSession()
+			if err != nil || session == nil {
+				fmt.Println("No previous session found. Starting new session.")
+				session = memory.NewSession(workflowFile)
+			} else {
+				fmt.Printf("📚 Continuing latest session: %s\n", session.ID)
+			}
+		} else {
+			session = memory.NewSession(workflowFile)
+			fmt.Printf("📝 New session: %s\n", session.ID)
+		}
+
+		// If user provided a prompt, add it to session
+		if userPrompt != "" {
+			session.AddMessage("user", "input", userPrompt)
+			fmt.Printf("💬 User prompt: %s\n", userPrompt)
+		}
+
 		executor := engine.NewExecutor(config)
+
+		// Pass session history (including user prompt) to executor
+		executor.SetSessionHistory(session.GetHistory())
+
+		// Set callback to save each agent's response to session
+		executor.SetMessageCallback(func(agentID, role, content string) {
+			session.AddMessage(agentID, role, content)
+		})
+
 		output, err := executor.Execute()
 		if err != nil {
+			// Save partial session progress before exiting
+			if saveErr := session.Save(); saveErr != nil {
+				fmt.Printf("Warning: Could not save session: %v\n", saveErr)
+			} else {
+				fmt.Printf("💾 Partial session saved: %s (use --continue to retry)\n", session.ID)
+			}
 			fmt.Fprintf(os.Stderr, "Error executing workflow: %v\n", err)
+
+			// Show helpful tip if quota exceeded
+			if strings.Contains(err.Error(), "QUOTA_EXCEEDED") {
+				fmt.Println("\n╔═══════════════════════════════════════════════════════════╗")
+				fmt.Println("║  💡 QUOTA EXCEEDED - Switch to a different model          ║")
+				fmt.Println("╠═══════════════════════════════════════════════════════════╣")
+				fmt.Println("║  Try one of these:                                        ║")
+				fmt.Println("║  --use-provider ollama --use-model llama3                 ║")
+				fmt.Println("║  --use-model gemini-2.0-flash (different quota bucket)    ║")
+				fmt.Println("╚═══════════════════════════════════════════════════════════╝")
+			}
 			os.Exit(1)
 		}
 
+		// Save session (all agent messages already added via callback)
+		if err := session.Save(); err != nil {
+			fmt.Printf("Warning: Could not save session: %v\n", err)
+		}
+
+		// Cleanup old sessions
+		memory.CleanupOldSessions()
+
 		fmt.Println("\n--- Final Output ---")
 		fmt.Println(output)
+		fmt.Printf("\n💾 Session saved: %s\n", session.ID)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(runCmd)
+	runCmd.Flags().StringVar(&sessionID, "session", "", "Continue a specific session by ID")
+	runCmd.Flags().BoolVar(&continueLatest, "continue", false, "Continue the most recent session")
+	runCmd.Flags().StringVarP(&userPrompt, "prompt", "p", "", "Provide input prompt for the session")
+	runCmd.Flags().StringVar(&useProvider, "use-provider", "", "Override provider for all agents (e.g., ollama, gemini)")
+	runCmd.Flags().StringVar(&useModel, "use-model", "", "Override model for all agents (e.g., llama3, gemini-2.5-flash)")
 }
 
 func ensureAPIKeys(config *types.WorkflowConfig) error {
