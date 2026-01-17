@@ -2,9 +2,12 @@ package agent
 
 import (
 	"fmt"
+	"time"
 
 	"Orkflow/pkg/types"
 )
+
+const maxRetries = 3
 
 type Runner struct {
 	Config  *types.WorkflowConfig
@@ -38,16 +41,28 @@ func (r *Runner) RunAgent(agentDef *types.Agent) (string, error) {
 	}
 
 	prompt := r.buildPrompt(agentDef)
-
 	fmt.Printf("[%s] Running agent: %s\n", agentDef.ID, agentDef.Role)
 
-	response, err := client.Generate(prompt)
+	var response string
+	var err error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		response, err = client.Generate(prompt)
+		if err == nil {
+			break
+		}
+		fmt.Printf("[%s] Attempt %d failed: %v\n", agentDef.ID, attempt, err)
+
+		if attempt < maxRetries {
+			time.Sleep(time.Second * time.Duration(attempt))
+		}
+	}
+
 	if err != nil {
-		return "", fmt.Errorf("agent %s failed: %w", agentDef.ID, err)
+		return "", fmt.Errorf("agent %s failed after %d attempts: %w", agentDef.ID, maxRetries, err)
 	}
 
 	r.Context.AddOutput(agentDef.ID, response)
-
 	return response, nil
 }
 
