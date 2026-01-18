@@ -73,6 +73,9 @@ func (r *Runner) RunAgent(agentDef *types.Agent) (string, error) {
 	// Wait for required keys from shared memory
 	if r.SharedMemory != nil && len(agentDef.Requires) > 0 {
 		fmt.Printf("[%s] ⏳ Waiting for required data: %v\n", agentDef.ID, agentDef.Requires)
+		if r.Logger != nil {
+			r.Logger.LogAgent(agentDef.ID, "WAITING_FOR_REQUIRED", fmt.Sprintf("Keys: %v", agentDef.Requires))
+		}
 		for _, key := range agentDef.Requires {
 			val, err := r.SharedMemory.WaitFor(key, 5*time.Minute) // 5 min timeout for slow models
 			if err != nil {
@@ -81,6 +84,9 @@ func (r *Runner) RunAgent(agentDef *types.Agent) (string, error) {
 			// Inject into context
 			r.Context.AddOutput(fmt.Sprintf("shared:%s", key), fmt.Sprintf("%v", val))
 			fmt.Printf("[%s] ✓ Received '%s' from shared memory\n", agentDef.ID, key)
+			if r.Logger != nil {
+				r.Logger.LogAgent(agentDef.ID, "SHARED_MEMORY_RECEIVED", key)
+			}
 		}
 	}
 

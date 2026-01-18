@@ -123,10 +123,34 @@ func (e *Executor) executeSequential() (string, error) {
 func (e *Executor) executeParallel() (string, error) {
 	e.State.Start()
 
+	// Check if any agent has listens_to defined (collaborative mode)
+	hasCollaborativeAgents := false
+	for _, branchID := range e.Config.Workflow.Branches {
+		agentDef := e.Runner.GetAgent(branchID)
+		if agentDef != nil && len(agentDef.ListensTo) > 0 {
+			hasCollaborativeAgents = true
+			break
+		}
+	}
+
+	// If collaborative agents exist, use MessageChannel for real-time messaging
+	var channel *memory.MessageChannel
+	if hasCollaborativeAgents {
+		channel = memory.NewMessageChannel(100)
+		defer channel.Close()
+		fmt.Printf("🤝 Parallel workflow with real-time messaging enabled\n")
+	}
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var firstErr error
 	results := make(map[string]string)
+
+	// Get max turns from workflow config (default 5)
+	maxTurns := e.Config.Workflow.MaxTurns
+	if maxTurns <= 0 {
+		maxTurns = 5
+	}
 
 	for _, branchID := range e.Config.Workflow.Branches {
 		wg.Add(1)
@@ -143,7 +167,20 @@ func (e *Executor) executeParallel() (string, error) {
 				return
 			}
 
-			response, err := e.Runner.RunAgent(agentDef)
+			var response string
+			var err error
+
+			// Use collaborative mode if agent has listens_to and channel exists
+			if channel != nil && len(agentDef.ListensTo) > 0 {
+				// Set max turns if not defined at agent level
+				if agentDef.MaxTurns <= 0 {
+					agentDef.MaxTurns = maxTurns
+				}
+				response, err = e.Runner.RunCollaborativeAgent(agentDef, channel)
+			} else {
+				response, err = e.Runner.RunAgent(agentDef)
+			}
+
 			mu.Lock()
 			if err != nil {
 				if firstErr == nil {

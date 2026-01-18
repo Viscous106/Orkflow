@@ -320,15 +320,12 @@ Examples:
 			fmt.Printf("Warning: Could not save session: %v\n", err)
 		}
 
-		// Index session in vector store
+		// Index session in vector store (optional, fails silently if Ollama not running)
 		go func() {
 			store, err := vectorstore.NewChromemStoreWithOllama("nomic-embed-text")
 			if err == nil {
-				fmt.Print("🧠 Indexing session...")
-				if err := vectorstore.IndexSession(store, session); err != nil {
-					fmt.Printf(" failed: %v\n", err)
-				} else {
-					fmt.Println(" done.")
+				if err := vectorstore.IndexSession(store, session); err == nil {
+					fmt.Println("🧠 Session indexed for smart context.")
 				}
 				store.Close()
 			}

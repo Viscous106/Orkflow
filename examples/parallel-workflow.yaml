@@ -3,11 +3,11 @@
 
 models:
   gpt4:
-    provider: openai
-    model: gpt-4o-mini
+    provider: google
+    model: gemini-2.5-flash
   gemini:
     provider: google
-    model: gemini-2.0-flash
+    model: gemini-2.5-flash
 
 agents:
   - id: backend_dev

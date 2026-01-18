@@ -1,0 +1,79 @@
+# Collaborative Workflow Example
+#
+# This example demonstrates two agents collaborating in real-time:
+# - A Designer who creates UI designs
+# - A Developer who provides implementation feedback
+#
+# They communicate using <message> tags until reaching consensus,
+# then a Reviewer consolidates their work.
+
+models:
+  gemini:
+    provider: google
+    model: gemini-2.0-flash
+
+# Memory configuration (optional)
+# memory:
+#   type: vector
+#   persist_path: ./data
+#   embedder: local
+
+agents:
+  - id: designer
+    role: UI/UX Designer
+    goal: |
+      Design a modern, minimalist todo app UI.
+      
+      Requirements:
+      - Clean, distraction-free interface
+      - Dark mode support
+      - Mobile-responsive
+      
+      Collaborate with the developer to ensure your design is feasible.
+      When you reach agreement, send <DONE/>.
+    model: gemini
+    listens_to:
+      - developer
+    max_turns: 3
+    can_broadcast: false
+    outputs:
+      - final_design
+
+  - id: developer
+    role: Frontend Developer
+    goal: |
+      Review the designer's UI proposals and provide implementation feedback.
+      
+      Consider:
+      - Technical feasibility
+      - Performance implications
+      - Existing component library compatibility
+      
+      Work with the designer to refine the design.
+      When you agree on a final approach, send <DONE/>.
+    model: gemini
+    listens_to:
+      - designer
+    max_turns: 3
+    can_broadcast: false
+    outputs:
+      - implementation_notes
+
+  - id: reviewer
+    role: Tech Lead
+    goal: |
+      Review the final design and implementation notes.
+      Provide a summary of what was agreed upon and any remaining concerns.
+    model: gemini
+    requires:
+      - final_design
+      - implementation_notes
+
+workflow:
+  type: collaborative
+  collaborators:
+    - designer
+    - developer
+  max_turns: 5
+  then:
+    agent: reviewer

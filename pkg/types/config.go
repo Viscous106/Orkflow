@@ -12,4 +12,5 @@ type WorkflowConfig struct {
 	Workflow   *WorkflowSpec              `yaml:"workflow,omitempty"`
 	Models     map[string]Model           `yaml:"models,omitempty"`
 	MCPServers map[string]MCPServerConfig `yaml:"mcp_servers,omitempty"`
+	Memory     *MemoryConfig              `yaml:"memory,omitempty"` // Vector memory configuration
 }

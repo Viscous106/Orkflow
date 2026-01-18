@@ -1,0 +1,62 @@
+# Two agents discussing, then a reviewer consolidates
+# Usage: orka run examples/two_agents_collab.yaml
+
+models:
+  openai:
+    provider: openai
+    model: gpt-4o
+
+agents:
+  - id: architect
+    role: Software Architect
+    goal: |
+      You are a software architect.
+      Discuss with the developer about the best database choice for a new e-commerce app.
+
+      Consider: PostgreSQL vs MongoDB vs DynamoDB
+
+      Use <message to="developer">your message</message> to talk to the developer.
+      When you both agree, send <DONE/>.
+    model: openai
+    listens_to:
+      - developer
+    outputs:
+      - architecture_decision
+
+  - id: developer
+    role: Backend Developer
+    goal: |
+      You are a backend developer.
+      Discuss with the architect about the best database choice for a new e-commerce app.
+
+      Share your practical experience with different databases.
+
+      Use <message to="architect">your message</message> to talk to the architect.
+      When you both agree, send <DONE/>.
+    model: openai
+    listens_to:
+      - architect
+    outputs:
+      - implementation_notes
+
+  - id: reviewer
+    role: Tech Lead Reviewer
+    goal: |
+      Review the architecture decision and implementation notes from the architect and developer.
+
+      Provide:
+      1. Summary of the agreed database choice
+      2. Key points from their discussion
+      3. Any concerns or recommendations
+    model: openai
+    requires:
+      - architecture_decision
+      - implementation_notes
+
+workflow:
+  type: parallel
+  branches:
+    - architect
+    - developer
+  then:
+    agent: reviewer
