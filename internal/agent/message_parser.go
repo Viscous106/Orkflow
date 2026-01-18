@@ -56,25 +56,33 @@ func ContainsDoneSignal(response string) bool {
 	return donePattern.MatchString(response)
 }
 
-// StripMessageTags removes all message/broadcast/DONE tags from a response,
-// returning the "clean" content for final output
+// StripMessageTags replaces message tags with a readable text format
+// e.g. <message to="bob">hi</message> -> [To bob]: hi
 func StripMessageTags(response string) string {
-	result := messagePattern.ReplaceAllString(response, "")
-	result = broadcastPattern.ReplaceAllString(result, "")
+	// Replace direct messages
+	result := messagePattern.ReplaceAllString(response, "[To $1]: $2")
+	// Replace broadcasts
+	result = broadcastPattern.ReplaceAllString(result, "[Broadcast]: $1")
+	// Remove DONE signal
 	result = donePattern.ReplaceAllString(result, "")
 	// Clean up extra whitespace
 	result = strings.TrimSpace(result)
 	return result
 }
 
-// ExtractFinalOutput extracts the final output from a collaborative conversation.
-// It looks for content after the last message tag, or the stripped response if no tags.
+// ExtractFinalOutput collects the entire conversation history as the output.
+// It converts message tags to readable text so downstream agents can understand the context.
 func ExtractFinalOutput(conversation []string) string {
 	if len(conversation) == 0 {
 		return ""
 	}
 
-	// Use the last response as the final output
-	lastResponse := conversation[len(conversation)-1]
-	return StripMessageTags(lastResponse)
+	var sb strings.Builder
+	for _, resp := range conversation {
+		cleaned := StripMessageTags(resp)
+		if cleaned != "" {
+			sb.WriteString(cleaned + "\n\n")
+		}
+	}
+	return strings.TrimSpace(sb.String())
 }

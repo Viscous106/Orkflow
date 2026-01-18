@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"Orkflow/internal/memory"
+	"Orkflow/internal/tools"
 	"Orkflow/pkg/types"
 )
 
@@ -83,6 +84,49 @@ func (r *Runner) RunCollaborativeAgent(agentDef *types.Agent, channel *memory.Me
 		// Log to file if logger available
 		if r.Logger != nil {
 			r.Logger.LogAgentOutput(agentDef.ID, fmt.Sprintf("Turn %d", turn+1), response)
+		}
+
+		// Handle tool calls (NEW: Added support for tools in collaborative mode)
+		if (len(agentDef.Tools) > 0 || len(agentDef.Toolsets) > 0) && tools.HasToolCalls(response) {
+			toolCalls := tools.ParseToolCalls(response)
+			if len(toolCalls) > 0 {
+				fmt.Printf("[%s] 🛠️ Executing %d tool calls...\n", agentDef.ID, len(toolCalls))
+				results := tools.ExecuteToolCalls(toolCalls)
+
+				// Log tool execution
+				if r.Logger != nil {
+					for i, res := range results {
+						input := toolCalls[i].Input
+						output := res.Output
+						if res.Error != nil {
+							output = fmt.Sprintf("ERROR: %v", res.Error)
+						}
+						r.Logger.LogToolCall(res.ToolName, input, output)
+					}
+				}
+
+				toolOutput := tools.FormatToolResults(results)
+
+				// Make a follow-up call with tool results
+				if toolOutput != "" {
+					fmt.Printf("[%s] 🔄 Processing tool results...\n", agentDef.ID)
+					followupPrompt := prompt + "\n\nPrevious response:\n" + response + toolOutput + "\n\nNow provide your final response incorporating the tool results (and any messages you want to send):"
+					
+					followupResponse, followupErr := client.Generate(followupPrompt)
+					if followupErr == nil {
+						response = followupResponse
+						conversation = append(conversation, response) // Add follow-up to conversation
+						fmt.Printf("[%s] ✓ Follow-up completed (%d chars)\n", agentDef.ID, len(response))
+						
+						// Log follow-up output
+						if r.Logger != nil {
+							r.Logger.LogAgentOutput(agentDef.ID, fmt.Sprintf("Turn %d (Follow-up)", turn+1), response)
+						}
+					} else {
+						fmt.Printf("[%s] ⚠️ Follow-up failed: %v\n", agentDef.ID, followupErr)
+					}
+				}
+			}
 		}
 
 		// 4. Parse and send outgoing messages

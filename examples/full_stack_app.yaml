@@ -1,0 +1,89 @@
+# Collaborative Full Stack App Development with MCP
+#
+# This workflow demonstrates:
+# 1. Using an MCP server (filesystem) for file operations
+# 2. Three agents collaborating in real-time
+# 3. Building a simple Go server + HTML frontend
+#
+# Usage: orka run examples/full_stack_app.yaml
+
+models:
+  openai:
+    provider: openai
+    model: gpt-4o
+
+# Define standard MCP filesystem server
+# This allows agents to read/write files safely
+mcp_servers:
+  filesystem:
+    command: npx
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-filesystem"
+      - "."  # Allow access to current directory
+
+agents:
+  - id: backend
+    role: Backend Engineer
+    goal: |
+      Create a simple Go HTTP server in 'main.go'.
+      It should serve static files from current directory and have one API endpoint:
+      GET /api/hello -> Returns JSON {"message": "Hello from Go!"}
+      
+      Use the 'filesystem' tools to write the file. 
+      Collaborate with the Frontend Engineer to ensure the API matches their needs.
+      
+      When finished and verified, send <DONE/>.
+    model: openai
+    # Use the filesystem MCP server by adding it as a toolset
+    toolsets:
+      - filesystem
+    listens_to:
+      - frontend
+      - lead
+    outputs:
+      - backend_code
+
+  - id: frontend
+    role: Frontend Engineer
+    goal: |
+      Create a simple 'index.html' file.
+      It should fetch data from /api/hello and display it.
+      Add some basic CSS to make it look nice.
+      
+      Use the 'filesystem' tools to write the file.
+      Coordinate with the Backend Engineer on the API endpoint structure.
+      
+      When finished and verified, send <DONE/>.
+    model: openai
+    toolsets:
+      - filesystem
+    listens_to:
+      - backend
+      - lead
+    outputs:
+      - frontend_code
+
+  - id: lead
+    role: Tech Lead
+    goal: |
+      Coordinate the work of Backend and Frontend engineers.
+      Ensure they are building compatible pieces.
+      
+      If you see any issues (e.g., mismatched API paths), intervene immediately.
+      Once both have finished their tasks, give a final summary of what was built.
+      
+      Send <DONE/> when the project is complete.
+    model: openai
+    listens_to:
+      - backend
+      - frontend
+    outputs:
+      - project_summary
+
+workflow:
+  type: parallel
+  branches:
+    - backend
+    - frontend
+    - lead

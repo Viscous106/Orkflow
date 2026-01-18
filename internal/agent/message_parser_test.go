@@ -107,8 +107,8 @@ The conclusion.
 
 	result := StripMessageTags(response)
 	expected := `Here's my final answer.
-
-
+[To agent1]: Some message
+[Broadcast]: A broadcast
 The conclusion.`
 
 	if result != expected {
@@ -124,8 +124,14 @@ func TestExtractFinalOutput(t *testing.T) {
 	}
 
 	result := ExtractFinalOutput(conversation)
-	if result != "Final response with important content" {
-		t.Errorf("ExtractFinalOutput failed: %s", result)
+	expected := `First response [To other]: msg1
+
+Second response [To other]: msg2
+
+Final response with important content`
+
+	if result != expected {
+		t.Errorf("ExtractFinalOutput failed.\nGot:\n%s\n\nExpected:\n%s", result, expected)
 	}
 }
 
