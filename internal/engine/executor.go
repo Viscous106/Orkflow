@@ -146,10 +146,10 @@ func (e *Executor) executeParallel() (string, error) {
 	var firstErr error
 	results := make(map[string]string)
 
-	// Get max turns from workflow config (default 5)
+	// Get max turns from workflow config (default 100 - agents should stop via <DONE/>)
 	maxTurns := e.Config.Workflow.MaxTurns
 	if maxTurns <= 0 {
-		maxTurns = 5
+		maxTurns = 100
 	}
 
 	for _, branchID := range e.Config.Workflow.Branches {
